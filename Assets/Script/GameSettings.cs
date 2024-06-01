@@ -15,16 +15,7 @@ public class GameSettings : MonoBehaviour
 
     void Start()
     {
-        PlayerPrefs.SetString("currentLevel", null);
         DontDestroyOnLoad(this);
-
-        GameObject canvas = GameObject.Find("Canvas");
-        canvas.transform.GetChild(0).gameObject.SetActive(true);
-        canvas.transform.GetChild(1).gameObject.SetActive(false);
-        canvas.transform.GetChild(2).gameObject.SetActive(false);
-        canvas.transform.GetChild(3).gameObject.SetActive(false);
-        canvas.transform.GetChild(4).gameObject.SetActive(false);
-        canvas.transform.GetChild(5).gameObject.SetActive(false);
 
         /*musicSlider = GameObject.Find("MusicSlider").GetComponent<Slider>();
         soundSlider = GameObject.Find("SoundSlider").GetComponent<Slider>();

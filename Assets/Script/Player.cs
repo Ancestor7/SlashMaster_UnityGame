@@ -5,48 +5,72 @@ using UnityEngine.SceneManagement;
 
 public class Player : MonoBehaviour
 {
-    private bool gameStarting { get; set; } 
-    private string currentLevel { get; set; }
+    public static Player Instance { get; private set; }
+    public GameObject parent;
+
+    [SerializeField] float speed;
+
     private Camera mainCamera;
+    private Light playerLight;
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+    }
+
     void Start()
     {
         DontDestroyOnLoad(gameObject);
-        gameStarting = false;
-        currentLevel = null;
-        mainCamera = Camera.main;
-
-        if (mainCamera != null)
-        {
-            DontDestroyOnLoad(mainCamera.gameObject);
-        }
+        mainCamera = parent.transform.GetChild(0).gameObject.GetComponent<Camera>();
+        playerLight = parent.transform.GetChild(1).gameObject.GetComponent<Light>();
+        speed = 2.5f;
     }
 
-    // Update is called once per frame
     void Update()
     {
-        if (gameStarting && transform.position.z < 0)
-        {
-            transform.position += transform.forward * 3 * Time.deltaTime;
-        }
-        else if (gameStarting && transform.position.z >= 0)
-        {
-            SceneManager.LoadScene(1);
-            transform.position = new Vector3(0, 1.75f, 4.5f);
-            transform.Rotate(0, 180f, 0, Space.Self);
-            if (mainCamera != null)
-            {
-                mainCamera.fieldOfView = 60f;
-            }
-            gameStarting = false;
-        }
-
-
 
     }
 
-    public void StartGame(string currentLevel)
+    public void EnterDungeon()
     {
-        gameStarting = true;
-        this.currentLevel = currentLevel;
+        transform.position = new Vector3(0, 1.5f, -2f);
+        mainCamera.fieldOfView += 40f;
     }
+
+    public void MoveCharacterAtStart()
+    {
+        StartCoroutine(CoMoveCharacterAtStart());
+    }
+
+    private IEnumerator CoMoveCharacterAtStart()
+    {
+        while (transform.position.z < 10f)
+        {
+            transform.position += speed * Time.deltaTime * transform.forward;
+            yield return null;
+        }
+        transform.position = new Vector3(transform.position.x, transform.position.y, 10f);
+        //yield return new WaitForSeconds(1);
+        SceneManager.LoadScene(1);
+    }
+
+    public void EnterDungeonRoom()
+    {
+        StartCoroutine(CoEnterDungeonRoom());
+    }
+
+    private IEnumerator CoEnterDungeonRoom()
+    {
+        yield return null;
+    }
+
 }

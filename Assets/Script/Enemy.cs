@@ -5,6 +5,7 @@ using UnityEngine;
 public class Enemy : MonoBehaviour
 {
     private Animator animator;
+    private int Health, Damage, AttackTime;
 
     void Start()
     {
