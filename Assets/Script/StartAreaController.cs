@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class StartAreaController : MonoBehaviour
@@ -17,6 +18,7 @@ public class StartAreaController : MonoBehaviour
     [SerializeField] Button PlayButton;
 
     private Image darkScreen;
+
     void Start()
     {
         SetMainMenu();
@@ -48,13 +50,20 @@ public class StartAreaController : MonoBehaviour
             Player.Instance.transform.position = new Vector3(0, 1, 0);
         }
     }
-
     private void OnPlayButtonPress()
     {
-        if (Player.Instance != null)
+        StartCoroutine(CoMoveCharacterAtStart());
+    }
+
+    private IEnumerator CoMoveCharacterAtStart()
+    {
+        while (transform.localPosition.z > -10f)
         {
-            Player.Instance.MoveCharacterAtStart();
+            transform.localPosition -= 2.5f * Time.deltaTime * transform.forward;
+            yield return null;
         }
+        transform.localPosition = new Vector3(transform.position.x, transform.position.y, 10f);
+        SceneManager.LoadScene(1);
     }
 
     public void DarkenScreen()

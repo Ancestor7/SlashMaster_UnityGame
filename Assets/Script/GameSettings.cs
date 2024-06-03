@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 public class GameSettings : MonoBehaviour
 {
+    // UNDONE: Broken Settings
     [Header("Game Settings")]
     [SerializeField] private Slider musicSlider = null;
     [SerializeField] private float defaultMusicVolume = 5f;
