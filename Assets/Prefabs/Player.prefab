@@ -232,8 +232,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a27b4cda38936748938ddc5d391b60e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  trailPrefab: {fileID: 8544150769767698866, guid: 33c8f17f8e00965458248e7309e2f8b1, type: 3}
+  linePrefab: {fileID: 4263301632384021602, guid: ea6329ae5f096474cb5167847c1be7d2, type: 3}
   parent: {fileID: 9048219681114844454}
-  speed: 2.5
-  mainCamera: {fileID: 0}
-  playerLight: {fileID: 0}
-  items: 
+  mainCamera: {fileID: 4869533255660779406}
+  playerLight: {fileID: 3786896533477869921}

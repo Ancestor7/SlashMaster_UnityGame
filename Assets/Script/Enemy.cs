@@ -12,19 +12,23 @@ public class Enemy : MonoBehaviour
     [SerializeField] private GameObject healthBarObject;
     private TextMeshProUGUI healthBarText;
     private Slider healthBarSlider;
+
     [SerializeField] private GameObject attackBarObject;
     private TextMeshProUGUI attackBarText;
     private Image attackBarBg, attackBarFill;
     private Slider attackBarSlider;
+
     [SerializeField] private Color startAttackColor, endAttackColor;
 
     [Header("EnemyStats")]
-    [SerializeField] private int health;
+    [SerializeField] public int health;
     [SerializeField] private int damage;
+    [SerializeField] private int reward;
     [SerializeField] private float attackTime;
 
     private Animator animator;
     public bool isReady = false, isDead = false, isAttacking = false;
+    Coroutine attackPlayerCoroutine;
 
     void Awake()
     {
@@ -37,6 +41,7 @@ public class Enemy : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+        animator = gameObject.GetComponent<Animator>();
     }
 
     void Start()
@@ -47,16 +52,16 @@ public class Enemy : MonoBehaviour
     private void Update()
     {
         UpdateAttackBar();
+        
 
     }
 
     private void InitializeEnemy()
     {
-        animator = GetComponent<Animator>();
-
-        damage = damage != 0 ? damage : 1;
-        attackTime = attackTime != 0f ? attackTime : 5f;
         health = health != 0 ? health : 10;
+        damage = damage != 0 ? damage : -1;
+        reward = reward != 0 ? reward : 1;
+        attackTime = attackTime != 0f ? attackTime : 5f;
         
         attackBarSlider = attackBarObject.GetComponent<Slider>();
         attackBarSlider.maxValue = attackTime;
@@ -66,10 +71,10 @@ public class Enemy : MonoBehaviour
         attackBarText = attackBarObject.transform.GetChild(2).gameObject.GetComponent<TextMeshProUGUI>();
         attackBarText.text = "0";
 
-        startAttackColor = startAttackColor != Color.clear ? startAttackColor : new Color(0.5f, 1, 0, 1);
+        startAttackColor = startAttackColor != Color.clear ? startAttackColor : Color.white;
         endAttackColor = endAttackColor != Color.clear ? endAttackColor : new Color(1, 0.5f, 0, 1);
         attackBarFill = attackBarObject.transform.GetChild(1).gameObject.transform.GetChild(0).gameObject.GetComponent<Image>();
-        attackBarFill.color = new Color(startAttackColor.r, startAttackColor.g, startAttackColor.b);
+        attackBarFill.color = startAttackColor;
         attackBarBg = attackBarObject.transform.GetChild(0).gameObject.GetComponent<Image>();
         attackBarBg.color = new Color(startAttackColor.r / 2, startAttackColor.g / 2, startAttackColor.b / 2);
 
@@ -83,16 +88,16 @@ public class Enemy : MonoBehaviour
 
     private void UpdateAttackBar()
     {
-        attackBarText.text = (Math.Truncate(10 * attackBarSlider.value)/10).ToString();
-        attackBarFill.color = Color.Lerp(startAttackColor, endAttackColor, attackBarSlider.value / attackBarSlider.maxValue);
-        attackBarBg.color = new Color(attackBarFill.color.r / 2, attackBarFill.color.g / 2, attackBarFill.color.b / 2, 1f);
-        if (isReady)
+        if (isReady && !isDead)
         {
+            attackBarText.text = (Math.Truncate(10 * attackBarSlider.value) / 10).ToString();
+            attackBarFill.color = Color.Lerp(startAttackColor, endAttackColor, attackBarSlider.value / attackBarSlider.maxValue);
+            attackBarBg.color = new Color(attackBarFill.color.r / 2, attackBarFill.color.g / 2, attackBarFill.color.b / 2, 1f);
             if (!isAttacking && attackBarSlider.value >= attackBarSlider.maxValue)
             {
                 attackBarSlider.value = attackTime;
                 isAttacking = true;
-                StartCoroutine(AttackPlayer());
+                attackPlayerCoroutine = StartCoroutine(AttackPlayer());
             }
             else if (!isAttacking)
             {
@@ -103,11 +108,15 @@ public class Enemy : MonoBehaviour
     
     private void UpdateHealthBar()
     {
+        if (health < 0)
+        {
+            health = 0;
+        }
         healthBarText.text = health.ToString();
         healthBarSlider.value = health;
     }
 
-    private void Ready()
+    public void Ready()
     {
         animator.SetBool("isReady",true);
         isReady = true;
@@ -126,46 +135,56 @@ public class Enemy : MonoBehaviour
     {
         while (calmDuration>0)
         {
-            yield return null;
             calmDuration -= Time.deltaTime;
+            yield return null;
         }
         Ready();
     }
 
     private IEnumerator AttackPlayer()
     {
-
         int randomAtkIndex = UnityEngine.Random.Range(0, 3);
         animator.SetInteger("AttackIndex", randomAtkIndex);
         animator.SetTrigger("Attack");
-        yield return new WaitForSeconds(randomAtkIndex != 0 ? 1.5f / 2 : 1f / 2);
+        yield return new WaitForSeconds(randomAtkIndex != 0 ? 1.5f / 3f : 1f / 3f);
 
-        // TODO: deal damage to player
+        DungeonController.Instance.UpdatePlayerHealth(damage);
 
-        yield return new WaitForSeconds(randomAtkIndex != 0 ? 1.5f/2 : 1f/2);
+        yield return new WaitForSeconds(randomAtkIndex != 0 ? 1.5f * 2f / 3f: 1f * 2f / 3f);
         while (attackBarSlider.value > 0)
         {
-            yield return null;
             attackBarSlider.value -= Time.deltaTime * attackTime * 2;
+            yield return null;
         }
         attackBarSlider.value = 0f;
 
         isAttacking=false;
     }
 
-    private void PlayerDamage(int damageDealt)
+    public void PlayerDamage(int damageDealt)
     {
         health -= damageDealt;
         UpdateHealthBar();
         if (health <= 0)
         {
-            Death();
+            StartCoroutine(Death());
         }
     }
 
-    private void Death()
+    public IEnumerator Death(bool skip = false)
     {
         isDead = true;
+        if (attackPlayerCoroutine != null)
+        {
+            StopCoroutine(attackPlayerCoroutine);
+        }
+        Player.Instance.OnFightEnd();
         animator.SetBool("isDead", true);
+        yield return new WaitForSeconds(1 / DungeonController.Instance.roomSpeed);
+        Instance = null;
+        DungeonController.Instance.EndEnemyRoom(reward, skip);
+        //yield return new WaitForSeconds(1 / DungeonController.Instance.roomSpeed);
+        
+        
     }
 }

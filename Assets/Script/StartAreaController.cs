@@ -19,6 +19,11 @@ public class StartAreaController : MonoBehaviour
 
     private Image darkScreen;
 
+    private void OnEnable()
+    {
+        PlacePlayer();
+    }
+
     void Start()
     {
         SetMainMenu();
@@ -48,6 +53,7 @@ public class StartAreaController : MonoBehaviour
         if (Player.Instance != null)
         {
             Player.Instance.transform.position = new Vector3(0, 1, 0);
+            Player.Instance.mainCamera.fieldOfView = 60f;
         }
     }
     private void OnPlayButtonPress()
@@ -59,11 +65,11 @@ public class StartAreaController : MonoBehaviour
     {
         while (transform.localPosition.z > -10f)
         {
-            transform.localPosition -= 2.5f * Time.deltaTime * transform.forward;
+            transform.localPosition -= 3f * Time.deltaTime * transform.forward;
             yield return null;
         }
         transform.localPosition = new Vector3(transform.position.x, transform.position.y, 10f);
-        SceneManager.LoadScene(1);
+        SceneManager.LoadScene(2);
     }
 
     public void DarkenScreen()

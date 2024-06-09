@@ -1,26 +1,35 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using static UnityEditor.Progress;
 
 public class DungeonController : MonoBehaviour
 {
+    public static DungeonController Instance { get; private set; }
+
     #region Enums
+    /*
     enum Item
     {
+        None,
+        Potion,
         AtkBoost,
         DefBoost,
+        Protection,
+        Run,
         TimeSlow,
-        Potion,
-        Revive,
+        Calm,
         RawDmg,
         InstaKill,
-        Run
+        Revive,
     }
-
-    enum RoomType
+    */
+    public enum RoomType
     {
         Monster,  // 60
         Boss,     // 10
@@ -34,7 +43,10 @@ public class DungeonController : MonoBehaviour
     [Header("Objects")]
     [SerializeField] private GameObject DebugCamera;
     [SerializeField] private GameObject DarkScreen;
-    [SerializeField] private GameObject PlayerHud;
+    [SerializeField] public GameObject PlayerHud;
+    [SerializeField] private GameObject PauseDialog;
+    [SerializeField] private GameObject UseRoomDialog;
+    [SerializeField] private GameObject GameOverDialog;
 
     [Header("Prefabs")]
     [SerializeField] private GameObject DungeonRoomPrefab;
@@ -48,52 +60,90 @@ public class DungeonController : MonoBehaviour
     private GameObject currentRoomObject = null, nextRoomObject = null;
 
     [Header("Player Settings")]
-    [SerializeField] private float playerHealth;
-    [SerializeField] private float playerMoney;
-    [SerializeField] private float roomSpeed;
+    [SerializeField] private int playerMaxHealth;
+    [SerializeField] private int playerMinHealth;
+    [SerializeField] public int playerMoney;
+    [SerializeField] public float roomSpeed;
+    [SerializeField] private Color fullHealthColor = Color.green;
+    [SerializeField] private Color emptyHealthColor = Color.red;
+
+    private Color midColor = new(1,1,0,1);
+    private int playerCurrentHealth;
+    private Slider playerHealthSlider;
+    private TextMeshProUGUI playerHealthText;
+    private Image playerHealthFill;
+    private Image playerHealthBg;
+    private int playerShieldHealth;
+    private Slider playerShieldSlider;
+    private TextMeshProUGUI playerShieldText;
+    public Item[] playerItems = new Item[3];
+    public int playerDmg;
+    public int defence = 0;
+    public int dmgIncrease = 2, defIncrease = 2, shieldAmount = 5;
+    private bool immune = false, shieldActive = false;
 
     private int playerScore;
-    private int roomNumber;
-    private RoomType? currentRoomType = null, nextRoomType = null;
-    private List<Item> playerItems = new();
-    private bool playerIsAtEnterance;
+    public int roomNumber;
+    public RoomType currentRoomType;
+    private bool playerIsAtEnterance, playerIsMoving = false;
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        DebugCamera.SetActive(false);
+        DarkScreen.SetActive(true);
+        PauseDialog.SetActive(false);
+        AttachButtons();
+    }
+
+    private void AttachButtons()
+    {
+        PlayerHud.transform.GetChild(5).GetComponent<Button>().onClick.AddListener(PauseGame);
+        
+        PauseDialog.transform.GetChild(0).transform.GetChild(5).GetComponent<Button>().onClick.AddListener(BackToMenu);
+        PauseDialog.transform.GetChild(0).transform.GetChild(6).GetComponent<Button>().onClick.AddListener(ResumeGame);
+
+        GameOverDialog.transform.GetChild(0).transform.GetChild(1).GetComponent<Button>().onClick.AddListener(delegate { SceneManager.LoadScene(2); });
+        GameOverDialog.transform.GetChild(0).transform.GetChild(2).GetComponent<Button>().onClick.AddListener(delegate { SceneManager.LoadScene(1); });
+
+        GameObject itemBar = PlayerHud.transform.GetChild(4).gameObject;
+        itemBar.transform.GetChild(0).gameObject.GetComponent<Button>().onClick.AddListener(delegate { UseItem(0); });
+        itemBar.transform.GetChild(1).gameObject.GetComponent<Button>().onClick.AddListener(delegate { UseItem(1); });
+        itemBar.transform.GetChild(2).gameObject.GetComponent<Button>().onClick.AddListener(delegate { UseItem(2); });
+    }
 
     void Start()
     {
-        roomSpeed = roomSpeed != 0 ? roomSpeed : 2.5f;
-        DarkScreen.SetActive(true);
-        DebugCamera.SetActive(false);
+        roomSpeed = roomSpeed != 0 ? roomSpeed : 3f;   
+        
         EnterPlayerToDungeon();
         InitializePlayerData();
+
         darkScreenImage = DarkScreen.GetComponent<Image>();
         darkScreenImage.color = new Color(darkScreenImage.color.r, darkScreenImage.color.g, darkScreenImage.color.b, 1f);
+
         LightenScreen();
         CreateRoom();
         RoomBegin();
     }
 
-    void Update()
-    {
-        
-    }
-
-    #region PlayerFunctions
-
-    private void InitializePlayerData()
-    {
-        playerHealth = 10f;
-        playerMoney = 0f;
-        roomNumber = 0;
-        playerScore = 0;
-        playerItems.Clear();
-    }
+    #region PlayerMovement
 
     private void EnterPlayerToDungeon()
     {
         if (Player.Instance != null)
         {
             Player.Instance.transform.position = new Vector3(0, 1.5f, -2f);
-            Player.Instance.mainCamera.fieldOfView += 40f;
+            Player.Instance.mainCamera.fieldOfView = 100f;
             playerIsAtEnterance = true;
         }
         else
@@ -114,6 +164,11 @@ public class DungeonController : MonoBehaviour
 
     private IEnumerator CoMovePlayer(bool isMovingToNextRoom)
     {
+        while (playerIsMoving)
+        {
+            yield return null;
+        }
+        playerIsMoving = true;
         float moveDistance;
         if (playerIsAtEnterance)
         {
@@ -125,67 +180,420 @@ public class DungeonController : MonoBehaviour
             }
             else
             {
-                moveDistance = -2f;
+                moveDistance = -3f;
                 playerIsAtEnterance = false;
             }
         }
         else
         {
-            moveDistance = -6f;
+            moveDistance = -5f;
             playerIsAtEnterance = true;
         }
 
         float destinationPos = transform.position.z + moveDistance;
-        yield return new WaitForSeconds(1f);
         while (transform.position.z > destinationPos)
-        {   
-            yield return null;
+        {
             transform.position -= roomSpeed * Time.deltaTime * transform.forward;
+            yield return null;
         }
         transform.position = new Vector3(transform.position.x, transform.position.y, destinationPos);
+        playerIsMoving = false;
 
-        if ((currentRoomType == RoomType.Boss || currentRoomType == RoomType.Monster && !isMovingToNextRoom))
+        if (isMovingToNextRoom)
         {
-            ReadyEnemy();
+            DeleteOldRoom();
         }
-
     }
 
-    private void UpdateScoreAndSpeed(int roomIncrement = 1)
+    #endregion PlayerMovement
+
+    #region PlayerFunctions
+
+    private void InitializePlayerData()
     {
-        roomNumber += roomIncrement;
-        switch (currentRoomType)
+        playerMaxHealth = playerMaxHealth != 0 ? playerMaxHealth : 10;
+        playerMinHealth = 0;
+        playerCurrentHealth = playerMaxHealth;
+        playerMoney = 0;
+        roomNumber = 0;
+        playerScore = 0;
+        playerDmg = playerDmg != 0 ? playerDmg : 1;
+        playerItems = new Item[] { new Item(0), new Item(0), new Item(0) };
+        UpdateItemDisplay();
+
+        playerHealthSlider = PlayerHud.transform.GetChild(3).gameObject.GetComponent<Slider>();
+        playerHealthSlider.maxValue = playerMaxHealth; 
+        playerHealthSlider.minValue = 0;
+        playerHealthSlider.value = playerMaxHealth;
+
+        playerHealthText = playerHealthSlider.transform.GetChild(2).gameObject.GetComponent<TextMeshProUGUI>();
+        playerHealthFill = playerHealthSlider.transform.GetChild(1).gameObject.transform.GetChild(0).GetComponent<Image>();
+        playerHealthBg = playerHealthSlider.transform.GetChild(0).gameObject.GetComponent<Image>();
+
+        playerHealthText.text = playerCurrentHealth.ToString();
+        playerHealthFill.color = Color.green;
+        playerHealthBg.color = new Color(Color.green.r/2, Color.green.g/2, Color.green.b/2, 1f);
+
+        PlayerHud.transform.GetChild(6).gameObject.SetActive(false);
+        playerShieldSlider = PlayerHud.transform.GetChild(6).gameObject.GetComponent<Slider>();
+        playerShieldText = playerShieldSlider.transform.GetChild(2).gameObject.GetComponent<TextMeshProUGUI>();
+        playerShieldSlider.maxValue = 5;
+        playerShieldHealth = (int)playerShieldSlider.maxValue;
+    }
+
+    private void UpdateScoreAndSpeed(bool skip, int roomIncrement = 1)
+    {
+        if (!skip)
         {
-            case RoomType.Boss:
-                playerScore += 5;
-                break;
-            case RoomType.Monster:
-                playerScore += 2;
-                break;
-            default:
-                break;
+            roomNumber += roomIncrement;
+            switch (currentRoomType)
+            {
+                case RoomType.Boss:
+                    playerScore += 5;
+                    break;
+                case RoomType.Monster:
+                    playerScore += 2;
+                    break;
+                default:
+                    break;
+            }
+            playerScore += 1;
         }
-        playerScore += 1;
 
         PlayerHud.transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().text = "Room " + roomNumber.ToString();
         PlayerHud.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>().text = "Score: " + playerScore.ToString();
 
         // TODO: Increase room speed by room number
+        roomSpeed += 0.05f;
     }
 
+    public void UpdatePlayerHealth(int healthChange)
+    {
+        if (immune)
+        {
+            healthChange = 0;
+        }
+
+        if (healthChange != 0)
+        {   
+            if (healthChange > 0)
+            {
+                playerCurrentHealth = 
+                    (playerCurrentHealth + healthChange) > playerMaxHealth 
+                    ? playerMaxHealth 
+                    : playerCurrentHealth + healthChange;
+                Debug.Log("Positive" + playerCurrentHealth);
+
+            }
+            else
+            {
+                if (shieldActive)
+                {
+                    playerShieldHealth += healthChange;
+                    playerShieldSlider.value = playerShieldHealth;
+                    playerShieldText.text = playerShieldSlider.value.ToString();
+                    if (playerShieldHealth <= 0)
+                    {
+                        LoseShield();
+                    }
+                }
+                else
+                {
+                    healthChange += defence;
+                    if (healthChange > 0)
+                    {
+                        healthChange = 0;
+                    }
+                    playerCurrentHealth =
+                        (playerCurrentHealth + healthChange) < playerMinHealth
+                        ? playerMinHealth
+                        : playerCurrentHealth + healthChange;
+                }
+                Debug.Log("Negative" + playerCurrentHealth);
+
+            }
+
+            playerHealthText.text = playerCurrentHealth.ToString();
+            if (playerCurrentHealth >= playerMaxHealth / 2f)
+            {
+                playerHealthFill.color = Color.Lerp(midColor, fullHealthColor, (playerCurrentHealth - playerMaxHealth / 2f) / (playerMaxHealth / 2f));
+            }
+            else
+            {
+                playerHealthFill.color = Color.Lerp(emptyHealthColor, midColor, playerCurrentHealth / (playerMaxHealth / 2f));
+            }
+            playerHealthBg.color = new Color(playerHealthFill.color.r / 2, playerHealthFill.color.g / 2, playerHealthFill.color.b / 2, 1f);
+
+            playerHealthSlider.value = playerCurrentHealth;
+        }
+
+        StartCoroutine(PulsePlayerHealth());
+
+        // death check
+        if (playerCurrentHealth == 0)
+        {
+            bool revived = false;
+            for (int i = 0; i < 3; i++)
+            {
+                if (playerItems[i].id == 10)
+                {
+                    UseItem(i);
+                    revived = true;
+                    break;
+                }
+            }
+            if (revived)
+            {
+                UpdatePlayerHealth(playerMaxHealth);
+            }
+            else
+            {
+                GameOver();
+            }
+        }
+    }
+
+    private IEnumerator PulsePlayerHealth()
+    {
+        Vector3 minScale = new Vector3(1f, 1f, 1);
+        Vector3 maxScale = new Vector3(1.05f, 1.2f, 1);
+        bool expanding = true;
+        float duration = 0.1f, elapsed = 0f;
+
+        while (true)
+        {
+            if (expanding)
+            {
+                playerHealthFill.transform.localScale = Vector3.Lerp(minScale, maxScale, elapsed / duration);
+                if (elapsed >= duration)
+                {
+                    playerHealthFill.transform.localScale = maxScale;
+                    elapsed = 0f;
+                    expanding = false;
+                }
+            }
+            else
+            {
+                playerHealthFill.transform.localScale = Vector3.Lerp(maxScale, minScale, elapsed / duration);
+                if (elapsed >= duration)
+                {
+                    playerHealthFill.transform.localScale = minScale;
+                    break;
+                }
+            }
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+    }
+
+    public void CoinChange(int coinChange)
+    {
+        playerMoney += coinChange;
+        PlayerHud.transform.GetChild(2).gameObject.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>().text = $"Coins: {playerMoney}";
+    }
+
+    public void UpdateItemDisplay()
+    {
+        GameObject itemBar = PlayerHud.transform.GetChild(4).gameObject;
+        
+        for (int i = 0; i < playerItems.Length; i++)
+        {
+            Image itemImage = itemBar.transform.GetChild(i).gameObject.transform.GetChild(0).gameObject.GetComponent<Image>();
+
+            if (playerItems[i].id == 0)
+            {
+                itemImage.enabled = false;
+            }
+            else
+            {
+                itemImage.enabled = true;
+                itemImage.sprite = playerItems[i].sprite;
+            }
+        }
+    }
+
+    private void UseItem(int index)
+    {
+        Coroutine itemCoroutine = StartCoroutine(CoItemCooldown(index));
+    }
+
+    private IEnumerator CoItemCooldown(int index)
+    {
+        Image itemCooldown = PlayerHud.transform.GetChild(4).transform.GetChild(index).transform.GetChild(1).transform.GetComponent<Image>();
+        float itemTimer = 0.2f;
+        switch (playerItems[index].id)
+        {
+            case 1:
+                UpdatePlayerHealth(5);
+                break;
+            case 2:
+                StartCoroutine(CoItemEffect(playerItems[index].id));
+                itemTimer = 10f;
+                break;
+            case 3:
+                StartCoroutine(CoItemEffect(playerItems[index].id));
+                itemTimer = 10f;
+                break;
+            case 4:
+                GainShield();
+                break;
+            case 5:
+                RunAway();
+                break;
+            case 6:
+                StartCoroutine(CoItemEffect(playerItems[index].id));
+                itemTimer = 10f;
+                break;
+            case 7:
+                Enemy.Instance.Calm(10f);
+                itemTimer = 10f;
+                break;
+            case 8:
+                Enemy.Instance.PlayerDamage(5);
+                break;
+            case 9:
+                Enemy.Instance.PlayerDamage(Enemy.Instance.health);
+                break;
+            case 10:
+                UpdatePlayerHealth(playerMaxHealth);
+                itemTimer = 0.2f;
+                break;
+            case 11:
+                StartCoroutine(CoItemEffect(playerItems[index].id));
+                itemTimer = 10f;
+                break;
+            default:
+                itemTimer = 0f;
+                break;
+        }
+        float elapsed = 0;
+        while (elapsed < itemTimer)
+        {
+            itemCooldown.transform.localScale = new Vector3(
+                Mathf.Lerp(1f, 0f, elapsed / itemTimer),
+                itemCooldown.transform.localScale.y,
+                itemCooldown.transform.localScale.z);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        itemCooldown.transform.localScale = new Vector3(0f, itemCooldown.transform.localScale.y, itemCooldown.transform.localScale.z);
+        playerItems[index] = new Item(0);
+        UpdateItemDisplay();
+        yield return null;
+    }
+
+    private IEnumerator CoItemEffect(int index)
+    {
+        if (index == 2)
+        {
+            playerDmg += dmgIncrease;
+        } 
+        else if (index == 3)
+        {
+            defence += defIncrease;
+        }
+        else if (index == 6)
+        {
+            Time.timeScale = 0.5f;
+        }
+        else if (index == 11)
+        {
+            immune = true;
+        }
+
+        float elapsed = 0;
+        while (elapsed < 10f)
+        {
+            if (index == 6)
+            {
+                elapsed += Time.fixedDeltaTime;
+            }
+            else
+            {
+                elapsed += Time.deltaTime;
+            }
+            
+            yield return null;
+        }
+
+        if (index == 2)
+        {
+            playerDmg -= dmgIncrease;
+        }
+        else if (index == 3)
+        {
+            defence -= defIncrease;
+        }
+        else if (index == 6)
+        {
+            Time.timeScale = 1f;
+        }
+        else if (index == 11)
+        {
+            immune = false;
+        }
+    }
+    
+    private void GainShield()
+    {
+        shieldActive = true;
+        GameObject moneyDisplay = PlayerHud.transform.GetChild(2).gameObject;
+        GameObject shieldSlider = PlayerHud.transform.GetChild(6).gameObject;
+
+        if (shieldSlider.activeSelf)
+        {
+            shieldSlider.GetComponent<Slider>().value = shieldSlider.GetComponent<Slider>().maxValue;
+        }
+        else
+        {
+            shieldSlider.SetActive(true);
+            moneyDisplay.GetComponent<RectTransform>().anchorMin = new Vector2(0.05f, 0.33f);
+            moneyDisplay.GetComponent<RectTransform>().anchorMax = new Vector2(0.95f, 0.38f);
+            shieldSlider.GetComponent<Slider>().maxValue = shieldAmount;
+            shieldSlider.GetComponent<Slider>().value = shieldSlider.GetComponent<Slider>().maxValue;
+        }
+    }
+
+    private void LoseShield()
+    {
+        shieldActive = false;
+        GameObject moneyDisplay = PlayerHud.transform.GetChild(2).gameObject;
+        GameObject shieldSlider = PlayerHud.transform.GetChild(6).gameObject;
+
+        shieldSlider.SetActive(false);
+        moneyDisplay.GetComponent<RectTransform>().anchorMin = new Vector2(0.05f, 0.265f);
+        moneyDisplay.GetComponent<RectTransform>().anchorMax = new Vector2(0.95f, 0.315f);
+    }
+
+    private void RunAway()
+    {
+        StartCoroutine(Enemy.Instance.Death(true));
+    }
+
+    public void DamageEnemy()
+    {
+        Enemy.Instance.PlayerDamage(playerDmg);
+    }
+    
     #endregion
 
     #region ScreenEffects
-    public void DarkenScreen()
+
+    private void DarkenScreen()
     {
-        StartCoroutine(CoDarkenScreen());
+        StartCoroutine(CoScreenAlphaChange(Color.black));
     }
 
-    private IEnumerator CoDarkenScreen()
+    private void LightenScreen()
     {
-        yield return new WaitForSeconds(0.5f);
-        float duration = 2f, elapsed = 0f;
-        Color initialColor = darkScreenImage.color, targetColor = new Color(initialColor.r, initialColor.g, initialColor.b, 1f);
+        StartCoroutine(CoScreenAlphaChange(Color.clear));
+    }
+
+    private IEnumerator CoScreenAlphaChange(Color targetColor)
+    {
+        float duration = 1f, elapsed = 0f;
+        Color initialColor = darkScreenImage.color;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
@@ -195,27 +603,38 @@ public class DungeonController : MonoBehaviour
         darkScreenImage.color = targetColor;
     }
 
-    public void LightenScreen()
+    private IEnumerator CoDarkenAndLighten()
     {
-        StartCoroutine(CoLightenScreen());
-    }
-
-    private IEnumerator CoLightenScreen()
-    {
-        while (darkScreenImage.color.a != 0)
+        float duration = 1f, elapsed = 0f;
+        Color initialColor = Color.clear;
+        Color targetColor = Color.black;
+        while (elapsed < duration)
         {
-            darkScreenImage.color = Color.Lerp(darkScreenImage.color, Color.clear, Time.deltaTime * 2f);
+            elapsed += Time.deltaTime;
+            darkScreenImage.color = Color.Lerp(initialColor, targetColor, elapsed / duration);
             yield return null;
         }
-        darkScreenImage.color = Color.clear;
+        darkScreenImage.color = targetColor;
+        duration = 1f;
+        elapsed = 0f;
+        initialColor = Color.black;
+        targetColor = Color.clear;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            darkScreenImage.color = Color.Lerp(initialColor, targetColor, elapsed / duration);
+            yield return null;
+        }
+        darkScreenImage.color = targetColor;
     }
+
     #endregion
 
     #region RoomFunctions
 
     private void CreateRoom(){
         /* Place the start room or next room */
-        if (currentRoomObject != null && nextRoomObject != null)
+        if (currentRoomObject != null)
         {
             GameObject newRoom = InstantiateRoom(DungeonRoomPrefab, currentRoomObject.transform.position + new Vector3(0, 0, 8), Quaternion.identity);
             nextRoomObject = newRoom;
@@ -233,7 +652,7 @@ public class DungeonController : MonoBehaviour
         GameObject dungRoom = Instantiate(room, vector3, quaternion);
         dungRoom.transform.parent = gameObject.transform;
 
-        int randomRoom = Random.Range(0, 10);
+        int randomRoom = UnityEngine.Random.Range(0, 10);
         RoomType roomType = RoomType.Monster;
         if (roomNumber > 4)
         {
@@ -241,44 +660,66 @@ public class DungeonController : MonoBehaviour
             {
                 case int n when n <= 4:
                     roomType = RoomType.Monster;
+                    Debug.Log("Monster");
                     break;
                 case int n when n <= 6:
                     roomType = RoomType.Shop;
+                    Debug.Log("Shop");
                     break;
                 case int n when n == 7:
                     roomType = RoomType.Bonfire;
+                    Debug.Log("Rest");
                     break;
                 case int n when n == 8:
                     roomType = RoomType.Chest;
+                    Debug.Log("Chest");
                     break;
                 case int n when n == 9:
                     roomType = RoomType.Boss;
+                    Debug.Log("Boss");
                     break;
             }
         }
         else
         {
             roomType = RoomType.Monster;
+            Debug.Log("Monster");
         }
-
-        GameObject roomTypePrefab = EnemyPrefab;
+        /*
+        if (roomNumber == 0)
+        {
+            roomType = RoomType.Shop;
+        }
+        if (roomNumber == 1)
+        {
+            roomType = RoomType.Bonfire;
+        }
+        if (roomNumber == 2)
+        {
+            roomType = RoomType.Shop;
+        }
+        */
+        GameObject dungRoomType;
         switch (roomType)
         {
             case RoomType.Monster:
             case RoomType.Boss: // TODO: Make seperate boss
-                roomTypePrefab = EnemyPrefab;
+                dungRoomType = Instantiate(EnemyPrefab, EnemyPrefab.transform.position + vector3, EnemyPrefab.transform.rotation);
                 break;
             case RoomType.Shop:
-                roomTypePrefab = ShopStallPrefab;
+                dungRoomType = Instantiate(ShopStallPrefab, ShopStallPrefab.transform.position + vector3, ShopStallPrefab.transform.rotation);
                 break;
             case RoomType.Bonfire:
-                roomTypePrefab = BonfirePrefab;
+                dungRoomType = Instantiate(BonfirePrefab, BonfirePrefab.transform.position + vector3, BonfirePrefab.transform.rotation);
                 break;
             case RoomType.Chest:
-                roomTypePrefab = ChestPrefab; 
+                dungRoomType = Instantiate(ChestPrefab, ChestPrefab.transform.position + vector3, ChestPrefab.transform.rotation);
+                break;
+            default:
+                dungRoomType = Instantiate(EnemyPrefab, EnemyPrefab.transform.position + vector3, EnemyPrefab.transform.rotation);
                 break;
         }
-        GameObject dungRoomType = Instantiate(roomTypePrefab, roomTypePrefab.transform.position, roomTypePrefab.transform.rotation);
+        
 
         dungRoomType.transform.parent = dungRoom.transform;
         currentRoomType = roomType;
@@ -287,27 +728,38 @@ public class DungeonController : MonoBehaviour
 
     private void RoomBegin()
     {
-        bool roomFinished = false;
-
-        if (currentRoomType == RoomType.Monster || currentRoomType == RoomType.Boss)
+        switch (currentRoomType)
         {
-            MovePlayerFurtherIn();
-        }
-
-        // TODO: Implement room gameplay
-
-        if (roomFinished)
-        {
-            RoomOver();
+            case RoomType.Shop:
+            case RoomType.Chest:
+            case RoomType.Bonfire:
+                StartCoroutine(OpenEnterRoomDialog());
+                break;
+            default:
+                MovePlayerFurtherIn();
+                StartCoroutine(StartCombat());
+                break;
         }
     }
 
-    private void RoomOver()
+    private IEnumerator OpenEnterRoomDialog()
     {
-        UpdateScoreAndSpeed();
+        while (playerIsMoving)
+        {
+            yield return null;
+        }
+        GameObject roomDialog = Instantiate(UseRoomDialog);
+        roomDialog.transform.SetParent(transform.GetChild(0).gameObject.transform, false);
+        yield return null;
+
+    }
+
+    public void RoomOver(bool skip=false)
+    {
+        UpdateScoreAndSpeed(skip);
         CreateRoom();
         MovePlayerToNextRoom();
-        DeleteOldRoom();
+        
         RoomBegin();
     }
 
@@ -317,11 +769,105 @@ public class DungeonController : MonoBehaviour
         nextRoomObject = null;
     }
 
+    private IEnumerator StartCombat()
+    {
+        while (playerIsMoving)
+        {
+            yield return null;
+        }
+        //yield return new WaitForSeconds(3f / roomSpeed);
+        if (Enemy.Instance == null)
+        {
+            Debug.LogError("Enemy Instance null");
+        }
+        else
+        {
+            Enemy.Instance.Ready();
+        }
+        Player.Instance.OnFightStart();
+        yield return null;
+    }
+
+    public void EndEnemyRoom(int coinReward, bool skip = false)
+    {
+        if (!skip) { CoinChange(coinReward); }
+        RoomOver(skip);
+    }
+
+    public void Rest()
+    {
+        StartCoroutine(CoRest());
+    }
+
+    public IEnumerator CoRest()
+    {
+        float elapsed = 0f;
+        while (elapsed < 1f)
+        {
+            elapsed += Time.fixedDeltaTime;
+            darkScreenImage.color = Color.Lerp(Color.clear, Color.black, elapsed / 1f);
+            yield return null;
+        }
+        darkScreenImage.color = Color.black;
+
+        yield return new WaitForSeconds(0.5f);
+        UpdatePlayerHealth(playerMaxHealth / 2);
+
+        elapsed = 0f;
+        while (elapsed < 1f)
+        {
+            elapsed += Time.fixedDeltaTime;
+            darkScreenImage.color = Color.Lerp(Color.black, Color.clear, elapsed / 1f);
+            yield return null;
+        }
+        darkScreenImage.color = Color.clear;
+
+        Destroy(DialogManager.Instance);
+
+        RoomOver();
+    }
+
+    public void OpenChest()
+    {
+        // TODO: Add chest mechanics
+    }
+
     #endregion
 
-    private void ReadyEnemy()
+    #region ButtonFunctinos
+
+    private void PauseGame()
     {
-        gameObject.transform.GetChild((roomNumber == 0) ? 1 : 2).gameObject.transform.GetChild(2).GetComponent<Animator>().SetBool("isReady", true);
-        Enemy.Instance.isReady = true;
+        Time.timeScale = 0;
+        AudioListener.pause = true;
+    }
+
+    private void ResumeGame()
+    {
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
+    }
+
+    private void BackToMenu()
+    {
+        PauseDialog.SetActive(false);
+        PlayerHud.SetActive(false);
+        ResumeGame();
+        DarkenScreen();
+        StartCoroutine(CoBackToMenu());
+    }
+
+    private IEnumerator CoBackToMenu()
+    {
+        yield return new WaitForSeconds(1);
+        SceneManager.LoadScene(1);
+    }
+
+    #endregion
+
+    private void GameOver()
+    {
+        PlayerHud.SetActive(false);
+        GameOverDialog.SetActive(true);
     }
 }

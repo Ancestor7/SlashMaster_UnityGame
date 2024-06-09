@@ -1,12 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-public class FillLevels : MonoBehaviour
+public class Gamestart : MonoBehaviour
 {
     // Start is called before the first frame update
-    void Awake()
+    void Start()
     {
-
+        SceneManager.LoadScene(1);
     }
 }
