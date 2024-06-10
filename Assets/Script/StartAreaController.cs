@@ -29,14 +29,10 @@ public class StartAreaController : MonoBehaviour
         SetMainMenu();
         PlacePlayer();
         darkScreen = DarkScreen.GetComponent<Image>();
-        darkScreen.color = new Color(darkScreen.color.r, darkScreen.color.g, darkScreen.color.b, 0f);
+        darkScreen.color = new Color(darkScreen.color.r, darkScreen.color.g, darkScreen.color.b, 1f);
         PlayButton.onClick.AddListener(OnPlayButtonPress);
         PlayButton.onClick.AddListener(DarkenScreen);
-    }
-
-    void Update()
-    {
-        
+        LightenScreen();
     }
 
     public void SetMainMenu()
@@ -68,7 +64,7 @@ public class StartAreaController : MonoBehaviour
             transform.localPosition -= 3f * Time.deltaTime * transform.forward;
             yield return null;
         }
-        transform.localPosition = new Vector3(transform.position.x, transform.position.y, 10f);
+        transform.localPosition = new Vector3(transform.position.x, transform.position.y, -10f);
         SceneManager.LoadScene(2);
     }
 
@@ -79,10 +75,11 @@ public class StartAreaController : MonoBehaviour
 
     private IEnumerator CoDarkenScreen()
     {
+        DarkScreen.SetActive(true);
         yield return new WaitForSeconds(0.5f);
         float duration = 2f, elapsed = 0f;
         Color initialColor = darkScreen.color, targetColor = new Color(initialColor.r, initialColor.g, initialColor.b, 1f);
-        while (elapsed<duration)
+        while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             darkScreen.color = Color.Lerp(initialColor, targetColor, elapsed / duration);
@@ -90,4 +87,25 @@ public class StartAreaController : MonoBehaviour
         }
         darkScreen.color = targetColor;
     }
+
+    private void LightenScreen()
+    {
+        StartCoroutine(CoLightenScreen());
+    }
+
+    private IEnumerator CoLightenScreen()
+    {
+        yield return new WaitForSeconds(0.5f);
+        float duration = 0.5f, elapsed = 0f;
+        Color initialColor = darkScreen.color, targetColor = new Color(initialColor.r, initialColor.g, initialColor.b, 0f);
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            darkScreen.color = Color.Lerp(initialColor, targetColor, elapsed / duration);
+            yield return null;
+        }
+        darkScreen.color = targetColor;
+        DarkScreen.SetActive(false);
+    }
+
 }

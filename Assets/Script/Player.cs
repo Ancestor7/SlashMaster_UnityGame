@@ -47,6 +47,20 @@ public class Player : Singleton<Player>
         playerLight = parent.transform.GetChild(1).gameObject.GetComponent<Light>();
     }
 
+    public void ResetPlayer()
+    {
+        trail = null;
+        PlayerHud = null;
+        touchPoints.Clear();
+        trailCoroutine = null;
+        damageLineSpawner = null;
+        lineAreaRectTransform = null;
+        lineAreaWidth = 0;
+        lineAreaHeight = 0;
+        damageLines.Clear();
+        damageLineObjects.Clear();
+    }
+
     private void InitializeFightRect()
     {
         PlayerHud = DungeonController.Instance.PlayerHud;
@@ -91,6 +105,11 @@ public class Player : Singleton<Player>
             Destroy(damageLineObjects[i]);
         }
         damageLineObjects.Clear();
+
+        if (trailCoroutine != null)
+        {
+            StopCoroutine(trailCoroutine);
+        }
 
         inputManager.OnStartTouch -= SwipeStart;
         inputManager.OnEndTouch -= SwipeEnd;

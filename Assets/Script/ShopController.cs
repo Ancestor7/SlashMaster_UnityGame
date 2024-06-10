@@ -149,19 +149,6 @@ public class ShopController : MonoBehaviour
         }
     }
 
-    private int EmptyPlayerSlotIndex()
-    {
-        for (int i = 0; i < DungeonController.Instance.playerItems.Length; i++)
-        {
-            if (DungeonController.Instance.playerItems[i].id == 0)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
     private void UpdateItemButtons()
     {
         GameObject shopPanel = transform.GetChild(0).gameObject;
@@ -190,7 +177,7 @@ public class ShopController : MonoBehaviour
             Button itemButton = shopItemObjects[i].GetComponent<Button>();
             itemButton.interactable = true;
             TextMeshProUGUI coinText = shopItemObjects[i].transform.GetChild(2).gameObject.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>();
-            int emptySlotIndex = EmptyPlayerSlotIndex();
+            int emptySlotIndex = DungeonController.Instance.EmptyPlayerSlotIndex();
             if (shopItems[i].id != 0)
             {
                 if (emptySlotIndex >= 0)
@@ -240,7 +227,7 @@ public class ShopController : MonoBehaviour
                 playerItemObjects[i].transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>().text = DungeonController.Instance.playerItems[i].itemName;
                 GameObject bottomText = playerItemObjects[i].transform.GetChild(2).gameObject;
                 bottomText.transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().text = DungeonController.Instance.playerItems[i].itemDesc;
-                bottomText.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>().text = $"{DungeonController.Instance.playerItems[i].itemCost} <sprite=0>";
+                bottomText.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>().text = $"{DungeonController.Instance.playerItems[i].itemCost / 2} <sprite=0>";
             }
             else
             {
@@ -258,7 +245,7 @@ public class ShopController : MonoBehaviour
             Button playerItemButton = playerItemObjects[i].GetComponent<Button>();
             playerItemButton.onClick.AddListener(delegate { SellItem(i); });
             playerItemButton.interactable = true;
-            if (DungeonController.Instance.playerItems[i].id == 0)
+            if (DungeonController.Instance.playerItems[i].id == 0 || DungeonController.Instance.playerItems[i].active == true)
             {
                 playerItemButton.interactable = false;
             }
@@ -268,7 +255,7 @@ public class ShopController : MonoBehaviour
     public void BuyItem(int index)
     {
         DungeonController.Instance.CoinChange(-shopItems[index].itemCost);
-        int playerIndex = EmptyPlayerSlotIndex();
+        int playerIndex = DungeonController.Instance.EmptyPlayerSlotIndex();
         DungeonController.Instance.playerItems[playerIndex] = shopItems[index];
         shopItems[index] = new Item(0);
         UpdateItemButtons();

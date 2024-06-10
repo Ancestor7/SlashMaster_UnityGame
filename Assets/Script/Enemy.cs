@@ -58,10 +58,10 @@ public class Enemy : MonoBehaviour
 
     private void InitializeEnemy()
     {
-        health = health != 0 ? health : 10;
-        damage = damage != 0 ? damage : -1;
+        health = health != 0 ? health : 5;
+        damage = damage != 0 ? damage : -2;
         reward = reward != 0 ? reward : 1;
-        attackTime = attackTime != 0f ? attackTime : 5f;
+        attackTime = attackTime != 0f ? attackTime : 3f;
         
         attackBarSlider = attackBarObject.GetComponent<Slider>();
         attackBarSlider.maxValue = attackTime;

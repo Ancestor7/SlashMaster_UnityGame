@@ -9,6 +9,7 @@ public class Item
     public string itemDesc;
     public int itemCost;
     public Sprite sprite;
+    public bool active = false;
 
     public Item(int id)
     {

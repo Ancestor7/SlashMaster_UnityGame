@@ -54,14 +54,14 @@ public class DialogManager : MonoBehaviour
             Title.GetComponent<TextMeshProUGUI>().text = "Rest?";
             buttonText.text = "<sprite=0>\nRest";
             buttonText.spriteAsset = restFont;
-            enterButton.onClick.AddListener(delegate { DungeonController.Instance.Rest(); } );
+            enterButton.onClick.AddListener(delegate { DungeonController.Instance.Rest(); Destroy(gameObject); } );
         }
         if (DungeonController.Instance.currentRoomType == DungeonController.RoomType.Chest)
         {
             Title.GetComponent<TextMeshProUGUI>().text = "Open Chest?";
             buttonText.text = "<sprite=0>\nOpen";
             buttonText.spriteAsset = chestFont;
-            enterButton.onClick.AddListener(delegate { DungeonController.Instance.OpenChest(); DungeonController.Instance.RoomOver(); Destroy(gameObject); } );
+            enterButton.onClick.AddListener(delegate { gameObject.SetActive(false); DungeonController.Instance.OpenChest(); Destroy(gameObject); } );
         }
 
         enterButton.onClick.AddListener(delegate { UseRoomDialogDisabled(); });

@@ -6,6 +6,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using static DungeonController;
 using static UnityEditor.Progress;
 
 public class DungeonController : MonoBehaviour
@@ -80,12 +81,12 @@ public class DungeonController : MonoBehaviour
     public int playerDmg;
     public int defence = 0;
     public int dmgIncrease = 2, defIncrease = 2, shieldAmount = 5;
-    private bool immune = false, shieldActive = false;
+    private bool immune = false, shieldActive = false, screenIsDark = true;
 
     private int playerScore;
     public int roomNumber;
     public RoomType currentRoomType;
-    private bool playerIsAtEnterance, playerIsMoving = false;
+    private bool playerIsAtEnterance, playerIsMoving = false, inCombat = false;
 
     private void Awake()
     {
@@ -123,7 +124,7 @@ public class DungeonController : MonoBehaviour
 
     void Start()
     {
-        roomSpeed = roomSpeed != 0 ? roomSpeed : 3f;   
+        roomSpeed = roomSpeed != 0 ? roomSpeed : 5f;   
         
         EnterPlayerToDungeon();
         InitializePlayerData();
@@ -164,7 +165,7 @@ public class DungeonController : MonoBehaviour
 
     private IEnumerator CoMovePlayer(bool isMovingToNextRoom)
     {
-        while (playerIsMoving)
+        while (playerIsMoving || screenIsDark)
         {
             yield return null;
         }
@@ -264,7 +265,7 @@ public class DungeonController : MonoBehaviour
         PlayerHud.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>().text = "Score: " + playerScore.ToString();
 
         // TODO: Increase room speed by room number
-        roomSpeed += 0.05f;
+        roomSpeed *= 1.01f;
     }
 
     public void UpdatePlayerHealth(int healthChange)
@@ -348,6 +349,7 @@ public class DungeonController : MonoBehaviour
             }
             else
             {
+                Player.Instance.OnFightEnd();
                 GameOver();
             }
         }
@@ -414,7 +416,11 @@ public class DungeonController : MonoBehaviour
 
     private void UseItem(int index)
     {
-        Coroutine itemCoroutine = StartCoroutine(CoItemCooldown(index));
+        if (!playerIsMoving && inCombat)
+        {
+            playerItems[index].active = true;
+            StartCoroutine(CoItemCooldown(index));
+        }
     }
 
     private IEnumerator CoItemCooldown(int index)
@@ -475,7 +481,7 @@ public class DungeonController : MonoBehaviour
                 itemCooldown.transform.localScale.z);
 
             elapsed += Time.deltaTime;
-            yield return null;
+            yield return new WaitUntil(() => inCombat);
         }
         itemCooldown.transform.localScale = new Vector3(0f, itemCooldown.transform.localScale.y, itemCooldown.transform.localScale.z);
         playerItems[index] = new Item(0);
@@ -514,7 +520,7 @@ public class DungeonController : MonoBehaviour
                 elapsed += Time.deltaTime;
             }
             
-            yield return null;
+            yield return new WaitUntil(() => inCombat);
         }
 
         if (index == 2)
@@ -535,6 +541,18 @@ public class DungeonController : MonoBehaviour
         }
     }
     
+    public int EmptyPlayerSlotIndex()
+    {
+        for (int i = 0; i < playerItems.Length; i++)
+        {
+            if (playerItems[i].id == 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
     private void GainShield()
     {
         shieldActive = true;
@@ -601,6 +619,11 @@ public class DungeonController : MonoBehaviour
             yield return null;
         }
         darkScreenImage.color = targetColor;
+        screenIsDark = false;
+        if (targetColor == Color.clear)
+        {
+            screenIsDark = false;
+        }
     }
 
     private IEnumerator CoDarkenAndLighten()
@@ -652,31 +675,34 @@ public class DungeonController : MonoBehaviour
         GameObject dungRoom = Instantiate(room, vector3, quaternion);
         dungRoom.transform.parent = gameObject.transform;
 
-        int randomRoom = UnityEngine.Random.Range(0, 10);
+
+        int randomRoom = UnityEngine.Random.Range(1, 4);
         RoomType roomType = RoomType.Monster;
-        if (roomNumber > 4)
+        if (roomNumber == 0)
+        {
+            roomType = RoomType.Monster;
+            Debug.Log("Monster");
+        }
+        else if (roomNumber % 20 == 0)
+        {
+            roomType = RoomType.Boss;
+            Debug.Log("Boss");
+        }
+        else if ((roomNumber + 1) % 20 == 0 || roomNumber % 4 == 0)
         {
             switch (randomRoom)
             {
-                case int n when n <= 4:
-                    roomType = RoomType.Monster;
-                    Debug.Log("Monster");
-                    break;
-                case int n when n <= 6:
+                case 1:
                     roomType = RoomType.Shop;
                     Debug.Log("Shop");
                     break;
-                case int n when n == 7:
+                case 2:
                     roomType = RoomType.Bonfire;
                     Debug.Log("Rest");
                     break;
-                case int n when n == 8:
+                case 3:
                     roomType = RoomType.Chest;
                     Debug.Log("Chest");
-                    break;
-                case int n when n == 9:
-                    roomType = RoomType.Boss;
-                    Debug.Log("Boss");
                     break;
             }
         }
@@ -685,24 +711,10 @@ public class DungeonController : MonoBehaviour
             roomType = RoomType.Monster;
             Debug.Log("Monster");
         }
-        /*
-        if (roomNumber == 0)
-        {
-            roomType = RoomType.Shop;
-        }
-        if (roomNumber == 1)
-        {
-            roomType = RoomType.Bonfire;
-        }
-        if (roomNumber == 2)
-        {
-            roomType = RoomType.Shop;
-        }
-        */
+
         GameObject dungRoomType;
         switch (roomType)
         {
-            case RoomType.Monster:
             case RoomType.Boss: // TODO: Make seperate boss
                 dungRoomType = Instantiate(EnemyPrefab, EnemyPrefab.transform.position + vector3, EnemyPrefab.transform.rotation);
                 break;
@@ -737,6 +749,7 @@ public class DungeonController : MonoBehaviour
                 break;
             default:
                 MovePlayerFurtherIn();
+                inCombat = true;
                 StartCoroutine(StartCombat());
                 break;
         }
@@ -756,10 +769,10 @@ public class DungeonController : MonoBehaviour
 
     public void RoomOver(bool skip=false)
     {
+        inCombat= false;
         UpdateScoreAndSpeed(skip);
         CreateRoom();
         MovePlayerToNextRoom();
-        
         RoomBegin();
     }
 
@@ -771,7 +784,7 @@ public class DungeonController : MonoBehaviour
 
     private IEnumerator StartCombat()
     {
-        while (playerIsMoving)
+        while (playerIsMoving || screenIsDark)
         {
             yield return null;
         }
@@ -829,7 +842,54 @@ public class DungeonController : MonoBehaviour
 
     public void OpenChest()
     {
-        // TODO: Add chest mechanics
+        StartCoroutine(OpenChestCoroutine());
+    }
+
+    private IEnumerator OpenChestCoroutine()
+    {
+        GameObject chest = transform.GetChild(1).transform.GetChild(2).transform.GetChild(0).gameObject;
+        Animator chestAnimator = chest.GetComponent<Animator>();
+        chestAnimator.SetTrigger("opened");
+        yield return new WaitForSeconds(1);
+
+        int random, index = EmptyPlayerSlotIndex();
+        if (index != -1)
+        {
+            random = UnityEngine.Random.Range(1, 4);
+            chest.transform.GetChild(random).transform.gameObject.SetActive(true);
+            if (random == 1)
+            {
+                int randomCoin = UnityEngine.Random.Range(5, (int)(roomNumber * 1.25f) + 1);
+                CoinChange(randomCoin);
+            }
+            if (random == 2)
+            {
+                int randomItem = UnityEngine.Random.Range(1, 8);
+                playerItems[index] = new Item(randomItem);
+                UpdateItemDisplay();
+            }
+            if (random == 3)
+            {
+                // sad
+            }
+        }
+        else
+        {
+            random = UnityEngine.Random.Range(1, 3);
+            if (random == 1)
+            {
+                chest.transform.GetChild(random).transform.gameObject.SetActive(true);
+                int randomCoin = UnityEngine.Random.Range(5, (int)(roomNumber * 1.25f) + 1);
+                CoinChange(randomCoin);
+            }
+            if (random == 2)
+            {
+                chest.transform.GetChild(random + 1).transform.gameObject.SetActive(true);
+                // sad
+            }
+        }
+        yield return new WaitForSeconds(1);
+        RoomOver();
     }
 
     #endregion
@@ -854,6 +914,7 @@ public class DungeonController : MonoBehaviour
         PlayerHud.SetActive(false);
         ResumeGame();
         DarkenScreen();
+        Player.Instance.OnFightEnd();
         StartCoroutine(CoBackToMenu());
     }
 
@@ -861,6 +922,7 @@ public class DungeonController : MonoBehaviour
     {
         yield return new WaitForSeconds(1);
         SceneManager.LoadScene(1);
+        Player.Instance.ResetPlayer();
     }
 
     #endregion
