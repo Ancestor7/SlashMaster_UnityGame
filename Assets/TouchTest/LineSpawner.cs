@@ -29,8 +29,6 @@ public class LineSpawner : MonoBehaviour
 
     private void SpawnLineShape()
     {
-        Debug.Log("SpawnLineShape");
-
         GameObject line = Instantiate(linePrefab, Vector2.zero, Quaternion.identity);
         line.transform.SetParent(lineAreaRectTransform, false);
 
@@ -41,8 +39,7 @@ public class LineSpawner : MonoBehaviour
 
         line.transform.position = startPoint;
 
-        Debug.Log($"Start point {startPoint}, End Point {endPoint}");
-        Debug.Log($"Relative: Start point {MapRectToScreen(startPoint)}, End Point {MapRectToScreen(endPoint)}");
+        Debug.Log($"Start point {MapRectToScreen(startPoint)}, End Point {MapRectToScreen(endPoint)}");
 
         RectTransform lineRectTransform = line.GetComponent<RectTransform>();
         lineRectTransform.anchoredPosition = startPoint;
@@ -52,12 +49,10 @@ public class LineSpawner : MonoBehaviour
         lineRectTransform.localRotation = Quaternion.Euler(0, 0, angle);
 
         float lineLength = Vector2.Distance(startPoint, endPoint);
-        Debug.Log($"Line Length {lineLength}");
 
         lineRectTransform.sizeDelta = new Vector2(lineLength, lineRectTransform.sizeDelta.y);
 
-        Debug.Log($"Line Start: {startPoint}, Line End: {endPoint}");
-        Debug.DrawLine(lineAreaRectTransform.TransformPoint(startPoint), lineAreaRectTransform.TransformPoint(endPoint), Color.red);
+        //Debug.DrawLine(lineAreaRectTransform.TransformPoint(startPoint), lineAreaRectTransform.TransformPoint(endPoint), Color.red);
     }
 
     private void SpawnVshape()

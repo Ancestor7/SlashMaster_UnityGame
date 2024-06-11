@@ -8,36 +8,27 @@ public class GameSettings : MonoBehaviour
     // UNDONE: Broken Settings
     [Header("Game Settings")]
     [SerializeField] private Slider musicSlider = null;
-    [SerializeField] private float defaultMusicVolume = 5f;
+    [SerializeField] private float defaultMusicVolume = 1f;
     [SerializeField] private Slider soundSlider = null;
-    [SerializeField] private float defaultSoundVolume = 5f;
-    [SerializeField] private Toggle notificationToggle = null;
+    [SerializeField] private float defaultSoundVolume = 1f;
+    //[SerializeField] private Toggle notificationToggle = null;
 
 
     void Start()
     {
-        DontDestroyOnLoad(this);
-
-        /*musicSlider = GameObject.Find("MusicSlider").GetComponent<Slider>();
-        soundSlider = GameObject.Find("SoundSlider").GetComponent<Slider>();
-        notificationToggle = GameObject.Find("SendNotificationToggle").GetComponent<Toggle>();
-
-        musicSlider.onValueChanged.AddListener(SetMusicVolume);
+        musicSlider.onValueChanged.AddListener(delegate { SetMusicVolume(musicSlider.value); });
         SetMusicVolume(defaultMusicVolume);
-
-        soundSlider.onValueChanged.AddListener(SetSoundVolume);
-        SetSoundVolume(defaultSoundVolume);*/
+        soundSlider.onValueChanged.AddListener(delegate { SetSoundVolume(soundSlider.value); });
+        SetSoundVolume(defaultSoundVolume);
     }
 
     public void SetMusicVolume(float volume)
     {
-        AudioListener.volume = volume;
         PlayerPrefs.SetFloat("musicVolume", volume);
     }
 
     public void SetSoundVolume(float volume)
     {
-        AudioListener.volume = volume;
         PlayerPrefs.SetFloat("soundVolume", volume);
     }
 }

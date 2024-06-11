@@ -17,6 +17,7 @@ public class Player : Singleton<Player>
     public Camera mainCamera;
     public Light playerLight;
 
+    private float minimumDistance = 100f, maxAngle = 22.5f;
     private GameObject trail;
     private GameObject PlayerHud;
     private InputManager inputManager;
@@ -169,44 +170,57 @@ public class Player : Singleton<Player>
 
     private void DetectSwipe()
     {
-        float averageDistance = 0f, variance = 0f, varianceThreshold = 50000f;
-
-        foreach (Vector2 point in touchPoints)
+        Vector2 lineDirection = new Vector2(damageLines[0].endPos.x - damageLines[0].startPos.x, damageLines[0].endPos.y - damageLines[0].startPos.y).normalized;
+        Vector2 swipeDirection = new Vector2(endPosition.x - startPosition.x, endPosition.y - startPosition.y).normalized;
+        //Debug.Log("Line direction: " + lineDirection + ", Swipe direction: " + swipeDirection);
+        float angle = Vector2.Angle(swipeDirection, lineDirection);
+        float lineLength = Vector3.Distance(startPosition, endPosition);
+        //Debug.Log("Length: " + lineLength);
+        if (angle <= maxAngle && lineLength >= minimumDistance)
         {
-            averageDistance += PointToLineDistance(point, damageLines[0].startPos, damageLines[0].endPos);
-        }
-        averageDistance /= touchPoints.Count;
+            float averageDistance = 0f, averageThreshold = 1500f;
+            foreach (Vector2 point in touchPoints)
+            {
+                averageDistance += PointToLineDistance(point, damageLines[0].startPos, damageLines[0].endPos);
+            }
+            averageDistance /= touchPoints.Count;
 
-        foreach (Vector2 point in touchPoints)
-        {
-            float distance = PointToLineDistance(point, damageLines[0].startPos, damageLines[0].endPos);
-            variance += Mathf.Pow(distance - averageDistance, 2);
-        }
-        variance /= touchPoints.Count;
+            Debug.Log("Average Distance: " + averageDistance);
 
-        Debug.Log("Average Distance: " + averageDistance);
-        Debug.Log("Variance: " + variance);
-
-        if (variance < varianceThreshold)
-        {
-            Debug.Log("Success");
-            DestroyLine();
-        }
-        else
-        {
-            Debug.Log("Fail");
+            if (averageDistance < averageThreshold)
+            {
+                Debug.Log("Success");
+                AudioSource attacksound = transform.GetComponent<AudioSource>();
+                attacksound.volume = PlayerPrefs.GetFloat("soundVolume")*0.5f;
+                attacksound.Play();
+                DestroyLine();
+            }
+            else
+            {
+                Debug.Log("Fail");
+            }
         }
     }
 
 
     private static float PointToLineDistance(Vector2 point, Vector2 lineStart, Vector2 lineEnd)
     {
-        Vector2 lineToPoint = point - lineStart;
-        Vector2 line = lineEnd - lineStart;
-        float t = Vector2.Dot(lineToPoint, line) / line.sqrMagnitude;
-        t = Mathf.Clamp01(t);
-        Vector2 projection = lineStart + t * line;
+        // line equation => 0 = -1 * y slope * x + constant
+        float slope = (lineEnd.y - lineStart.y)/(lineEnd.x - lineStart.x);
+        float constant = lineStart.y - slope * lineStart.x;
+
+        // distance from point to line => d = Mathf.abs
+        float distance = Mathf.Abs(slope * point.x + -1 * point.y + constant) / Mathf.Sqrt(slope * slope + 1);
+
+        return distance;
+        /*
+        Vector2 pointVector = point - lineStart;
+        Vector2 lineVector = lineEnd - lineStart;
+        float t = Vector2.Dot(pointVector, lineVector) / lineVector.magnitude;
+        //t = Mathf.Clamp01(t);
+        Vector2 projection = lineStart + t * lineVector;
         return Vector2.Distance(point, projection);
+        */
     }
 
     #endregion
@@ -279,7 +293,7 @@ public class Player : Singleton<Player>
             lineRectTransform.sizeDelta = new Vector2(lineLength, lineRectTransform.sizeDelta.y);
 
             DamageLine damageLine = new DamageLine(damageLineObject, MapRectToScreen(startPoint), MapRectToScreen(endPoint));
-
+            Debug.Log("Line: Start:" + MapRectToScreen(startPoint) + " End:" + MapRectToScreen(endPoint));
             damageLineObjects.Add(damageLineObject);
             damageLines.Add(damageLine);
         }
@@ -296,40 +310,6 @@ public class Player : Singleton<Player>
         {
             // 4 line
         }
-
-        /*
-
-        Debug.Log("SpawnLineShape");
-
-        GameObject line = Instantiate(linePrefab, Vector2.zero, Quaternion.identity);
-        line.transform.SetParent(lineAreaRectTransform, false);
-
-        float radius = Random.Range(0.9f, 1f);
-        Vector2 startPoint = Random.insideUnitCircle.normalized * radius;
-        startPoint = new Vector2(startPoint.x * lineAreaWidth / 2f, startPoint.y * lineAreaHeight / 2f);
-        Vector2 endPoint = new Vector2(0 - startPoint.x, 0 - startPoint.y);
-
-        line.transform.position = startPoint;
-
-        Debug.Log($"Start point {startPoint}, End Point {endPoint}");
-        Debug.Log($"Relative: Start point {MapRectToScreen(startPoint)}, End Point {MapRectToScreen(endPoint)}");
-
-        RectTransform lineRectTransform = line.GetComponent<RectTransform>();
-        lineRectTransform.anchoredPosition = startPoint;
-
-        Vector2 direction = startPoint - endPoint;
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        lineRectTransform.localRotation = Quaternion.Euler(0, 0, angle);
-
-        float lineLength = Vector2.Distance(startPoint, endPoint);
-        Debug.Log($"Line Length {lineLength}");
-
-        lineRectTransform.sizeDelta = new Vector2(lineLength, lineRectTransform.sizeDelta.y);
-
-        Debug.Log($"Line Start: {startPoint}, Line End: {endPoint}");
-        Debug.DrawLine(lineAreaRectTransform.TransformPoint(startPoint), lineAreaRectTransform.TransformPoint(endPoint), Color.red);
-        
-        */
     }
 
     private void DestroyLine()

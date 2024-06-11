@@ -120,10 +120,14 @@ public class DungeonController : MonoBehaviour
         itemBar.transform.GetChild(0).gameObject.GetComponent<Button>().onClick.AddListener(delegate { UseItem(0); });
         itemBar.transform.GetChild(1).gameObject.GetComponent<Button>().onClick.AddListener(delegate { UseItem(1); });
         itemBar.transform.GetChild(2).gameObject.GetComponent<Button>().onClick.AddListener(delegate { UseItem(2); });
+
+        PauseDialog.transform.GetChild(0).transform.GetChild(2).transform.GetComponent<Slider>().onValueChanged.AddListener(delegate { UpdateMusicVolume(); });
     }
 
     void Start()
     {
+        UpdateMusicVolume();
+
         roomSpeed = roomSpeed != 0 ? roomSpeed : 5f;   
         
         EnterPlayerToDungeon();
@@ -283,7 +287,6 @@ public class DungeonController : MonoBehaviour
                     (playerCurrentHealth + healthChange) > playerMaxHealth 
                     ? playerMaxHealth 
                     : playerCurrentHealth + healthChange;
-                Debug.Log("Positive" + playerCurrentHealth);
 
             }
             else
@@ -310,8 +313,6 @@ public class DungeonController : MonoBehaviour
                         ? playerMinHealth
                         : playerCurrentHealth + healthChange;
                 }
-                Debug.Log("Negative" + playerCurrentHealth);
-
             }
 
             playerHealthText.text = playerCurrentHealth.ToString();
@@ -681,12 +682,10 @@ public class DungeonController : MonoBehaviour
         if (roomNumber == 0)
         {
             roomType = RoomType.Monster;
-            Debug.Log("Monster");
         }
         else if (roomNumber % 20 == 0)
         {
             roomType = RoomType.Boss;
-            Debug.Log("Boss");
         }
         else if ((roomNumber + 1) % 20 == 0 || roomNumber % 4 == 0)
         {
@@ -694,22 +693,18 @@ public class DungeonController : MonoBehaviour
             {
                 case 1:
                     roomType = RoomType.Shop;
-                    Debug.Log("Shop");
                     break;
                 case 2:
                     roomType = RoomType.Bonfire;
-                    Debug.Log("Rest");
                     break;
                 case 3:
                     roomType = RoomType.Chest;
-                    Debug.Log("Chest");
                     break;
             }
         }
         else
         {
             roomType = RoomType.Monster;
-            Debug.Log("Monster");
         }
 
         GameObject dungRoomType;
@@ -931,5 +926,10 @@ public class DungeonController : MonoBehaviour
     {
         PlayerHud.SetActive(false);
         GameOverDialog.SetActive(true);
+    }
+
+    public void UpdateMusicVolume()
+    {
+        transform.GetComponent<AudioSource>().volume = PlayerPrefs.GetFloat("musicVolume");
     }
 }
