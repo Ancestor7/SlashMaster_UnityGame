@@ -128,7 +128,7 @@ public class DungeonController : MonoBehaviour
     {
         UpdateMusicVolume();
 
-        roomSpeed = roomSpeed != 0 ? roomSpeed : 5f;   
+        roomSpeed = roomSpeed != 0 ? roomSpeed : 7.5f;   
         
         EnterPlayerToDungeon();
         InitializePlayerData();

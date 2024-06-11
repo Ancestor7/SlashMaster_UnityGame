@@ -43,49 +43,49 @@ public class Item
             case 4:
                 itemName = "Shield";
                 itemDesc = "Gain shield";
-                itemCost = 7;
+                itemCost = 10;
                 sprite = Resources.Load<Sprite>("Protection");
                 break;
             case 5:
                 itemName = "Escape";
                 itemDesc = "Run away!";
-                itemCost = 7;
+                itemCost = 10;
                 sprite = Resources.Load<Sprite>("Run");
                 break;
             case 6:
                 itemName = "Time Magic";
                 itemDesc = "Slows Time";
-                itemCost = 10;
+                itemCost = 25;
                 sprite = Resources.Load<Sprite>("TimeMagic");
                 break;
             case 7:
                 itemName = "Calm Spell";
                 itemDesc = "Calms enemy";
-                itemCost = 10;
+                itemCost = 25;
                 sprite = Resources.Load<Sprite>("CalmMagic");
                 break;
             case 8:
                 itemName = "Insta DMG";
                 itemDesc = "Deal damage";
-                itemCost = 12;
+                itemCost = 35;
                 sprite = Resources.Load<Sprite>("InstaDamage");
                 break;
             case 9:
                 itemName = "Insta Kill";
                 itemDesc = "Kills enemy!";
-                itemCost = 25;
+                itemCost = 50;
                 sprite = Resources.Load<Sprite>("InstaKill");
                 break;
             case 10:
                 itemName = "Revive";
                 itemDesc = "Revives on death";
-                itemCost = 25;
+                itemCost = 50;
                 sprite = Resources.Load<Sprite>("ReviveCrystal");
                 break;
             case 11:
                 itemName = "Immunity Spell";
                 itemDesc = "Immune to damage for 10s";
-                itemCost = 20;
+                itemCost = 50;
                 sprite = Resources.Load<Sprite>("ImmunitySpell");
                 break;
         }

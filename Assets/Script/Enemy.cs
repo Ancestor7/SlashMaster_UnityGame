@@ -60,18 +60,18 @@ public class Enemy : MonoBehaviour
     private void InitializeEnemy()
     {
         int roomNumber = DungeonController.Instance.roomNumber;
-        float healthMult = 1 + roomNumber / 10f;
-        float damageMult = 1 + roomNumber / 25f;
-        float rewardMult = 1 + roomNumber / 10f;
+        float healthMult = 1 + roomNumber / 20f;
+        float damageMult = 1 + roomNumber / 50f;
+        float rewardMult = 1 + roomNumber / 20f;
         float attackTimeMult = Mathf.Lerp(1f, 0.5f, roomNumber/50f);
         float bossMult = 1f;
         if (roomNumber != 0 && roomNumber % 20 == 0)
         {
             isBoss = true;
-            float bossRandomMult = 1 + roomNumber / 20f;
+            float bossRandomMult = 1 + roomNumber / 200f;
             bossMult = UnityEngine.Random.Range(1 * bossRandomMult, 3 * bossRandomMult);
         }
-        health = Mathf.RoundToInt(bossMult * UnityEngine.Random.Range(3 * healthMult, 5 * healthMult));
+        health = Mathf.RoundToInt(bossMult * UnityEngine.Random.Range(1 * healthMult, 2 * healthMult));
         damage = Mathf.RoundToInt(bossMult * UnityEngine.Random.Range(-2 * damageMult, -1 * damageMult));
         reward = Mathf.RoundToInt(bossMult * UnityEngine.Random.Range(1 * rewardMult, 2 * rewardMult));
         attackTime = bossMult * UnityEngine.Random.Range(6 * attackTimeMult, 8 * attackTimeMult);

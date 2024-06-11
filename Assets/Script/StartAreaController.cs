@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -37,6 +38,11 @@ public class StartAreaController : MonoBehaviour
         PlayButton.onClick.AddListener(DarkenScreen);
         Settings.transform.GetChild(1).transform.GetChild(2).transform.GetComponent<Slider>().onValueChanged.AddListener(delegate { UpdateMusicVolume(); });
         LightenScreen();
+        /*
+        if (PlayerPrefs.GetString("username") == null)
+        {
+            Ranks.transform.GetChild(2).gameObject.SetActive(true);
+        }*/
     }
 
     public void SetMainMenu()
@@ -115,5 +121,11 @@ public class StartAreaController : MonoBehaviour
     public void UpdateMusicVolume()
     {
         transform.GetComponent<AudioSource>().volume = PlayerPrefs.GetFloat("musicVolume");
+    }
+
+    public void SetPlayerName()
+    {
+        PlayerPrefs.SetString("username", Ranks.transform.GetChild(2).transform.GetChild(0).transform.GetChild(1).gameObject.GetComponent<TMP_InputField>().text);
+        LeaderBoard.Instance.GetLeaderBoard();
     }
 }
