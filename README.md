@@ -41,16 +41,6 @@ This is my first game project. I hope you enjoy playing it as much as I enjoyed 
 - **Draw Shapes**: Use your finger to draw shapes on the screen when encountering monsters.
 - **Use Items**: Tap your items to use them.
 
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/YourFeature`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature/YourFeature`).
-5. Open a pull request.
-
 ## Contact
 
 For any inquiries or feedback, please contact:
